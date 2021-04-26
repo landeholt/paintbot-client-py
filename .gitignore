@@ -139,3 +139,14 @@ cython_debug/
 
 # vscode settings
 .vscode/
+
+# paintbot server
+server/
+
+# paintbot js client
+js-client/
+
+# SSL
+
+*.key
+*.crt

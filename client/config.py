@@ -1,13 +1,22 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from PyInquirer import style_from_dict, Token
+import platform
 
 
 @dataclass
-class Config:
-    host: str = "wss://server.paintbot.cygni.se"
-    venue: str = "training"
+class MutableConfig:
+    latest_game_mode: str = ""
+    latest_game_settings: str = ""
+    latest_game_link: str = ""
 
 
-@dataclass(frozen=True)
+@dataclass
+class GameMode:
+    training = "TRAINING"
+    tournament = "TOURNAMENT"
+
+
+@dataclass
 class Message:
     # Exceptions
     InvalidMessage = "se.cygni.paintbot.api.exception.InvalidMessage"
@@ -33,3 +42,38 @@ class Message:
     RegisterPlayer = "se.cygni.paintbot.api.request.RegisterPlayer"
     RegisterMove = "se.cygni.paintbot.api.request.RegisterMove"
     HeartbeatRequest = "se.cygni.paintbot.api.request.HeartBeatRequest"
+
+
+@dataclass
+class Config:
+    host: str = "ws://localhost:8080"  # "wss://server.paintbot.cygni.se"
+    venue: str = "training"
+    auto_start: bool = True
+    HEARTBEAT_INTERVAL: int = 5  # Python sleep is in seconds
+    SUPPORTED_GAME_MODES = frozenset(["TRAINING", "TOURNAMENT"])
+    game_mode: GameMode = GameMode
+
+    # Mutable settings
+    mutable: MutableConfig = MutableConfig
+
+
+client_info = {
+    "type": Message.ClientInfo,
+    "clientVersion": "0.1.0",
+    "operatingSystem": platform.system(),
+    "operatingSystemVersion": platform.release(),
+    "language": "Python",
+    "languageVersion": "3.6.5 64-bit",
+}
+
+prompt_style = style_from_dict(
+    {
+        Token.Separator: "#cc5454",
+        Token.QuestionMark: "#673ab7 bold",
+        Token.Selected: "#cc5454",  # default
+        Token.Pointer: "#673ab7 bold",
+        Token.Instruction: "",  # default
+        Token.Answer: "#f44336 bold",
+        Token.Question: "",
+    }
+)
