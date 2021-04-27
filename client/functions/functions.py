@@ -1,7 +1,8 @@
 import asyncio
 import logging
-import orjson as json
-import websockets
+import inspect
+import re
+
 
 from client.config import Config, Message, prompt_style
 from bot.config import Bot
@@ -11,9 +12,35 @@ from typing import Optional, Callable
 from dataclasses import dataclass
 from PyInquirer import prompt
 from pprint import pformat
+
 import websockets.exceptions as wse
 
 logger = logging.getLogger(__name__)
+
+
+def pluck(_dict: dict, to_snake=True):
+    def get_upper(match: re.Match) -> str:
+        return match.group(0)[1].upper()
+
+    def as_camel(key: str) -> str:
+        return re.sub(r"_\w", get_upper, key)
+
+    if not isinstance(_dict, dict):
+        raise TypeError(f"{_dict} is not a dict")
+    frame = inspect.currentframe().f_back
+    (ctx,) = inspect.getframeinfo(frame).code_context
+    variables, function_call = ctx.split(" = ")
+
+    if to_snake:
+        keys = [as_camel(k.strip()) for k in variables.split(",")]
+    else:
+        keys = [k.strip() for k in variables.split(",")]
+
+    if missing := [key for key in keys if key not in _dict]:
+        raise KeyError(*missing)
+
+    for key in keys:
+        yield _dict[key]
 
 
 def log(logger: Callable, message: str) -> None:
@@ -64,20 +91,11 @@ def create_register_move_message(action: str, receiving_player_id: str, game_id:
     }
 
 
-def dumps(message: dict) -> str:
-    # Paintbot Server apparently only allows Text-Frames
-    return json.dumps(message).decode()
-
-
-async def send_message(ws: websockets.WebSocketClientProtocol, message: dict) -> None:
-    await ws.send(dumps(message))
-
-
 async def heartbeat_response(kwargs: dict, bot=None) -> dict:
 
     try:
-        receiving_player_id = kwargs["receivingPlayerId"]
-
+        (receiving_player_id,) = pluck(kwargs)
+        # await asyncio.sleep(Config.HEARTBEAT_INTERVAL)
         return create_heartbeat_request_message(receiving_player_id)
     except:
         pass
@@ -85,9 +103,7 @@ async def heartbeat_response(kwargs: dict, bot=None) -> dict:
 
 async def player_registered(kwargs: dict, bot=None) -> dict:
     try:
-        receiving_player_id = kwargs["receivingPlayerId"]
-        game_mode = kwargs["gameMode"]
-        game_settings = kwargs["gameSettings"]
+        receiving_player_id, game_mode, game_settings = pluck(kwargs)
         Config.mutable.latest_game_mode = game_mode
         Config.mutable.latest_game_settings = game_settings
 
@@ -111,7 +127,7 @@ async def invalid_player_name(kwargs: dict, bot=None) -> dict:
 
 async def game_link(kwargs: dict, bot=None) -> dict:
     try:
-        game_link = kwargs["url"]
+        game_link = pluck(kwargs)
         log(logger.info, "Game is ready")
         Config.mutable.latest_game_link = game_link
         if Config.auto_start and Config.mutable.latest_game_mode == Config.game_mode.training:
@@ -134,9 +150,10 @@ async def game_result(kwargs: dict, bot=None) -> None:
 
 async def game_ended(kwargs: dict, bot=None) -> dict:
     try:
+        player_winner_name = pluck(kwargs)
         log(logger.info, f"You can view the game at {Config.mutable.latest_game_link}")
-        if Config.mutable.latest_game_link == Config.game_mode.training:
-            log(logger.info, f"Game has ended. The winner was {kwargs.player_winner_name}")
+        if Config.mutable.latest_game_mode == Config.game_mode.training:
+            log(logger.info, f"Game has ended. The winner was {player_winner_name}")
         raise GameOver
     except GameOver as exc:
         raise exc
@@ -150,10 +167,8 @@ async def tournament_ended(kwargs: dict, bot=None):
 
 async def map_update(kwargs: dict, bot=None) -> dict:
     try:
+        game_tick, receiving_player_id, game_id = pluck(kwargs)
         action = bot.get_next_action(kwargs)
-        game_tick = kwargs["gameTick"]
-        receiving_player_id = kwargs["receivingPlayerId"]
-        game_id = kwargs["gameId"]
 
         log_game_progress(game_tick)
         return create_register_move_message(action, receiving_player_id, game_id, game_tick)

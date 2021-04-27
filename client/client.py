@@ -8,10 +8,9 @@ import ssl
 from client.config import Config, Message, client_info
 from client.exceptions import GameOver
 from bot.config import GAME_SETTINGS, Bot
-from client.functions import dispatcher, send_message
+from client.functions import dispatcher
 
 from typing import Callable, Union
-from dataclasses import asdict
 
 logger = logging.getLogger(__name__)
 
@@ -20,12 +19,11 @@ async def dispatch(message_type: str, message: dict, bot) -> dict:
     return await dispatcher[message_type](message, bot)
 
 
-async def register(ws, send_message: Callable) -> None:
+async def bot_register(send_message: Callable) -> None:
     logger.info("WebSocket is open")
-    await send_message(ws, client_info)
+    await send_message(client_info)
     logger.info(f"Registering player {Bot.name}")
     await send_message(
-        ws,
         {
             "type": Message.RegisterPlayer,
             "playerName": Bot.name,
@@ -34,14 +32,16 @@ async def register(ws, send_message: Callable) -> None:
     )
 
 
-async def delay(ws, send_message: Callable, message):
-    await asyncio.sleep(Config.HEARTBEAT_INTERVAL)
-    await send_message(ws, message)
+def dumps(message: dict) -> str:
+    # Paintbot Server apparently only allows Text-Frames
+    return json.dumps(message).decode()
 
 
 async def message_handler(ws: websockets.WebSocketClientProtocol, bot) -> None:
+    async def send_message(message: dict) -> None:
+        await ws.send(dumps(message))
 
-    await register(ws, send_message)
+    await bot_register(send_message)
 
     data: Union[str, bytes]
     async for data in ws:
@@ -49,14 +49,9 @@ async def message_handler(ws: websockets.WebSocketClientProtocol, bot) -> None:
             message: dict = json.loads(data)
 
             message_type: str = message["type"]
-            print(message_type)
             response = await dispatch(message_type, message, bot)
             if response:
-                if response["type"] == Message.HeartbeatRequest:
-                    await asyncio.create_task(delay(ws, send_message, response))
-                    continue
-
-                await send_message(ws, response)
+                await send_message(response)
 
         except websockets.exceptions.InvalidState:
             return
@@ -71,10 +66,6 @@ async def create_client(
 ) -> None:
 
     uri = f"{host}/{venue}"
-
-    # ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-    # cert = pathlib.Path(__file__).with_name("ClientCert.crt")
-    # ssl_context.load_verify_locations(cert)
 
     async with websockets.connect(uri) as ws:
         await message_handler(ws, bot)

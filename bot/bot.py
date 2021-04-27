@@ -1,8 +1,17 @@
 from bot.config import Actions
+import random
 
 
 def get_next_action(kwargs):
-    return Actions.stay
+    return random.choice(
+        [
+            Actions.stay,
+            Actions.down,
+            Actions.left,
+            Actions.up,
+            Actions.right,
+        ]
+    )
 
 
 def bot():

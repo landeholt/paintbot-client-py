@@ -46,7 +46,8 @@ class Message:
 
 @dataclass
 class Config:
-    host: str = "ws://localhost:8080"  # "wss://server.paintbot.cygni.se"
+    host: str = "ws://localhost:8080"
+    # host: str = "wss://server.paintbot.cygni.se"
     venue: str = "training"
     auto_start: bool = True
     HEARTBEAT_INTERVAL: int = 5  # Python sleep is in seconds

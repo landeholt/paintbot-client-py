@@ -5,7 +5,7 @@ from client import client
 from bot.bot import create_bot
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.WARNING)
+    logging.basicConfig(level=logging.INFO)
 
     bot = create_bot()
 
