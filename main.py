@@ -5,7 +5,8 @@ import sys
 from client import client
 from client.config import Message
 from bot.bot import create_bot
-from trainer import trainer
+
+# from trainer import trainer
 
 from pprint import pformat
 
