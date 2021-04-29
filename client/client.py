@@ -9,7 +9,9 @@ from client.config import Config, Message, client_info
 from client.exceptions import GameOver
 from bot.config import GAME_SETTINGS, Bot
 from client.functions import dispatcher
+from functools import reduce
 
+from types import FunctionType
 from typing import Callable, Union
 
 logger = logging.getLogger(__name__)
@@ -37,9 +39,14 @@ def dumps(message: dict) -> str:
     return json.dumps(message).decode()
 
 
-async def message_handler(ws: websockets.WebSocketClientProtocol, bot) -> None:
+async def message_handler(ws: websockets.WebSocketClientProtocol, bot, middlewares) -> None:
     async def send_message(message: dict) -> None:
         await ws.send(dumps(message))
+
+    def call_middleware(message, fn):
+        if isinstance(fn, FunctionType):
+            return fn(message)
+        return message
 
     await bot_register(send_message)
 
@@ -47,6 +54,8 @@ async def message_handler(ws: websockets.WebSocketClientProtocol, bot) -> None:
     async for data in ws:
         try:
             message: dict = json.loads(data)
+            if middlewares:
+                message: dict = reduce(call_middleware, middlewares, message)
 
             message_type: str = message["type"]
             response = await dispatch(message_type, message, bot)
@@ -59,13 +68,9 @@ async def message_handler(ws: websockets.WebSocketClientProtocol, bot) -> None:
             return
 
 
-async def create_client(
-    bot,
-    host: str = Config.host,
-    venue: str = Config.venue,
-) -> None:
+async def create_client(bot, host: str = Config.host, venue: str = Config.venue, middlewares=None) -> None:
 
     uri = f"{host}/{venue}"
 
     async with websockets.connect(uri) as ws:
-        await message_handler(ws, bot)
+        await message_handler(ws, bot, middlewares)

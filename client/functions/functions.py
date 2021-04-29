@@ -25,6 +25,10 @@ def pluck(_dict: dict, to_snake=True):
     def as_camel(key: str) -> str:
         return re.sub(r"_\w", get_upper, key)
 
+    def generator(_dict: dict, keys: list):
+        for key in keys:
+            yield _dict[key]
+
     if not isinstance(_dict, dict):
         raise TypeError(f"{_dict} is not a dict")
     frame = inspect.currentframe().f_back
@@ -39,8 +43,11 @@ def pluck(_dict: dict, to_snake=True):
     if missing := [key for key in keys if key not in _dict]:
         raise KeyError(*missing)
 
-    for key in keys:
-        yield _dict[key]
+    if len(keys) == 1:
+        (key,) = keys
+        return _dict[key]
+    else:
+        return generator(_dict, keys)
 
 
 def log(logger: Callable, message: str) -> None:
@@ -94,7 +101,7 @@ def create_register_move_message(action: str, receiving_player_id: str, game_id:
 async def heartbeat_response(kwargs: dict, bot=None) -> dict:
 
     try:
-        (receiving_player_id,) = pluck(kwargs)
+        receiving_player_id = pluck(kwargs)
         # await asyncio.sleep(Config.HEARTBEAT_INTERVAL)
         return create_heartbeat_request_message(receiving_player_id)
     except:
@@ -127,7 +134,8 @@ async def invalid_player_name(kwargs: dict, bot=None) -> dict:
 
 async def game_link(kwargs: dict, bot=None) -> dict:
     try:
-        game_link = pluck(kwargs)
+        url = pluck(kwargs)
+        game_link = url
         log(logger.info, "Game is ready")
         Config.mutable.latest_game_link = game_link
         if Config.auto_start and Config.mutable.latest_game_mode == Config.game_mode.training:
@@ -136,7 +144,8 @@ async def game_link(kwargs: dict, bot=None) -> dict:
         return on_game_ready(create_game_message)
     except GameOver as exc:
         raise exc
-    except:
+    except Exception as exc:
+        print(exc)
         pass
 
 
@@ -172,8 +181,7 @@ async def map_update(kwargs: dict, bot=None) -> dict:
 
         log_game_progress(game_tick)
         return create_register_move_message(action, receiving_player_id, game_id, game_tick)
-    except Exception as e:
-        print(e)
+    except:
         pass
 
 
