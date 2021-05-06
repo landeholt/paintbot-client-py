@@ -2,6 +2,20 @@ from dataclasses import dataclass, asdict, field
 
 
 @dataclass
+class PARAMS:
+    OBS_HIT_PENALTY: int
+    OPPONENT_HIT_PENALTY: int
+
+    POWERUP_HIT_PENALTY: int
+    ALREADY_MY_COLOR_PENALTY: int
+
+    OPPONENT_COLOUR_BONUS: int
+    POWERUP_BONUS: int
+    PROBABILITY_AREA: int
+    STUCK_POLICY: int
+
+
+@dataclass
 class GAME_SETTINGS:
     maxNoofPlayers: int = field(default=5)
     timeInMsPerTick: int = field(default=250)
@@ -34,3 +48,5 @@ class Actions:
 @dataclass
 class Bot:
     name: str = "Pythonista"
+    save_gif: bool = False
+    model: any = None

@@ -1,1 +1,1 @@
-from client.functions.functions import dispatcher
+from client.functions.functions import dispatcher, pluck, print_replace

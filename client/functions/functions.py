@@ -2,6 +2,7 @@ import asyncio
 import logging
 import inspect
 import re
+import sys
 
 
 from client.config import Config, Message, prompt_style
@@ -15,7 +16,15 @@ from pprint import pformat
 
 import websockets.exceptions as wse
 
+from functools import reduce
+
 logger = logging.getLogger(__name__)
+
+
+def print_replace(message):
+    # sys.stdout.write("\n")
+    sys.stdout.write(f"{message}\r")
+    sys.stdout.flush()
 
 
 def pluck(_dict: dict, to_snake=True):
@@ -114,6 +123,8 @@ async def player_registered(kwargs: dict, bot=None) -> dict:
         Config.mutable.latest_game_mode = game_mode
         Config.mutable.latest_game_settings = game_settings
 
+        bot.set_settings(game_settings)
+
         if game_mode not in Config.SUPPORTED_GAME_MODES:
             raise UnsupportedGameMode
 
@@ -128,7 +139,7 @@ async def player_registered(kwargs: dict, bot=None) -> dict:
 
 
 async def invalid_player_name(kwargs: dict, bot=None) -> dict:
-    log(logger.info, f"The player name {Bot.name} was invalid")
+    log(logger.error, f"The player name {Bot.name} was invalid")
     raise InvalidPlayer
 
 
@@ -160,10 +171,12 @@ async def game_result(kwargs: dict, bot=None) -> None:
 async def game_ended(kwargs: dict, bot=None) -> dict:
     try:
         player_winner_name = pluck(kwargs)
-        log(logger.info, f"You can view the game at {Config.mutable.latest_game_link}")
-        if Config.mutable.latest_game_mode == Config.game_mode.training:
+        log(logger.warn, f"You can view the game at {Config.mutable.latest_game_link}")
+        if player_winner_name:
             log(logger.info, f"Game has ended. The winner was {player_winner_name}")
-        raise GameOver
+        if Config.mutable.latest_game_mode == Config.game_mode.training:
+            await bot.save()
+            raise GameOver
     except GameOver as exc:
         raise exc
     except:
@@ -171,6 +184,7 @@ async def game_ended(kwargs: dict, bot=None) -> dict:
 
 
 async def tournament_ended(kwargs: dict, bot=None):
+    print("Tournament ended!!")
     raise GameOver
 
 
@@ -180,6 +194,7 @@ async def map_update(kwargs: dict, bot=None) -> dict:
         action = bot.get_next_action(kwargs)
 
         log_game_progress(game_tick)
+
         return create_register_move_message(action, receiving_player_id, game_id, game_tick)
     except:
         pass

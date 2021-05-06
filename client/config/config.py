@@ -46,14 +46,15 @@ class Message:
 
 @dataclass
 class Config:
-    host: str = "ws://localhost:8080"
-    # host: str = "wss://server.paintbot.cygni.se"
-    # venue: str = "training"
-    venue: str = "tournament"
+    # host: str = "ws://localhost:8080"
+    host: str = "wss://server.paintbot.cygni.se"
+    venue: str = "training"
+    # venue: str = "tournament"
     auto_start: bool = True
     HEARTBEAT_INTERVAL: int = 5  # Python sleep is in seconds
     SUPPORTED_GAME_MODES = frozenset(["TRAINING", "TOURNAMENT"])
     game_mode: GameMode = GameMode
+    open_game_link: bool = False
 
     # Mutable settings
     mutable: MutableConfig = MutableConfig
